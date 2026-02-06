@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fileo • Bulut Depo</title>
+    
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/KerimDemirkaynak/FileDrop/refs/heads/main/favicon.png">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+    
+    <style>
+        :root {
+            /* KOYU TEMA (Dark & Flat) */
+            --bg-body: #09090b;       
+            --bg-card: #18181b;       
+            --bg-input: #27272a;      
+            --border: #3f3f46;        
+            --primary: #3b82f6;       
+            --primary-hover: #2563eb; 
+            --danger: #ef4444;        
+            --success: #10b981;
+            --text-main: #f4f4f5;     
+            --text-muted: #a1a1aa;    
+            --transition: all 0.2s ease;
+        }
+
+        * { box-sizing: border-box; }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 20px;
+        }
+
+        .wrapper { width: 100%; max-width: 500px; }
+
+        .card { 
+            background-color: var(--bg-card); 
+            padding: 40px; 
+            border-radius: 16px; 
+            border: 1px solid var(--border);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 40px -10px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+        }
+
+        /* GİRİŞ EKRANI */
+        .login-header { text-align: center; margin-bottom: 30px; }
+        .login-icon { font-size: 3rem; color: var(--primary); margin-bottom: 15px; }
+        .login-title { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+        .login-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
+
+        /* Inputlar */
+        label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+        
+        input[type="text"], input[type="password"], input[type="datetime-local"], select { 
+            width: 100%; padding: 14px; margin-bottom: 20px; 
+            background-color: var(--bg-input); border: 1px solid var(--border); 
+            border-radius: 8px; color: var(--text-main); font-size: 0.95rem; 
+            transition: var(--transition); outline: none;
+        }
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
+
+        button { 
+            width: 100%; padding: 14px; background-color: var(--primary); 
+            color: white; border: none; border-radius: 8px; cursor: pointer; 
+            font-size: 1rem; font-weight: 600; transition: var(--transition); 
+            display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+        button:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* Upload Area */
+        .upload-area { 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            border: 2px dashed var(--border); border-radius: 12px; padding: 3rem; 
+            cursor: pointer; text-align: center; transition: var(--transition); 
+            background: transparent; margin-bottom: 20px;
+        }
+        .upload-area:hover, .upload-area.dragover { border-color: var(--primary); background-color: rgba(59, 130, 246, 0.05); }
+        .upload-area .icon { font-size: 3rem; color: var(--primary); margin-bottom: 1rem; }
+        .upload-area p { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-main); }
+        .upload-area span { margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem; }
+        
+        #secilen-dosya-ismi { margin-top: 15px; font-weight: 600; color: var(--success); font-size: 0.9rem; display: none; }
+
+        /* YENİ: Yükleme İlerleme Çubuğu */
+        #upload-progress-container {
+            margin-top: 20px;
+            display: none; /* Başlangıçta gizli */
+        }
+        .upload-track {
+            width: 100%; background: var(--bg-input); height: 10px; border-radius: 5px; overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .upload-fill {
+            height: 100%; background: var(--primary); width: 0%; transition: width 0.1s linear;
+        }
+        .upload-text {
+            text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;
+        }
+
+        /* Liste */
+        ul#dosya-listesi { list-style: none; padding: 0; margin: 0; }
+        .dosya-item { 
+            display: flex; align-items: center; padding: 16px; 
+            background: var(--bg-input); border: 1px solid transparent; border-radius: 10px; 
+            margin-bottom: 10px; transition: var(--transition); overflow: hidden;
+        }
+        .dosya-item:hover { border-color: var(--primary); transform: translateX(5px); }
+
+        .file-icon { font-size: 1.5rem; color: var(--text-muted); margin-right: 15px; flex-shrink: 0; }
+        .file-info { flex-grow: 1; overflow: hidden; margin-right: 10px; }
+        .file-name { font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .file-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+        .action-btn { 
+            background: transparent; color: var(--text-muted); border: none; 
+            width: 32px; height: 32px; border-radius: 6px; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; transition: var(--transition); 
+        }
+        .action-btn:hover { background: rgba(255,255,255,0.1); color: var(--text-main); }
+        .action-btn.del:hover { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+        /* Kota */
+        .kota-header { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; }
+        .progress-track { width: 100%; background: var(--bg-input); height: 6px; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--success); width: 0%; transition: width 0.5s; }
+
+        /* Sonuç Kutusu */
+        .link-result {
+            margin-top: 15px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .link-result input { margin: 10px 0 0 0 !important; cursor: pointer; color: var(--success); border-color: rgba(16, 185, 129, 0.3); }
+
+        .gizli { display: none !important; }
+
+        .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-muted); width: auto; padding: 8px 15px; font-size: 0.9rem; }
+        .btn-logout:hover { border-color: var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+
+    <div id="giris-ekrani" class="card">
+        <div class="login-header">
+            <i class="fa-solid fa-cloud-bolt login-icon"></i>
+            <h2 class="login-title">Giriş Yap</h2>
+            <p class="login-subtitle">Dosyalarına erişmek için kimliğini doğrula.</p>
+        </div>
+
+        <label>KULLANICI ADI</label>
+        <input type="text" id="kullaniciAdi" placeholder="Kullanıcı Adı">
+
+        <label>ŞİFRE</label>
+        <input type="password" id="sifre" placeholder="••••••••">
+
+        <button onclick="girisYap()" id="girisBtn">
+            Giriş Yap <i class="fa-solid fa-arrow-right"></i>
+        </button>
+        <p id="hataMesaji" style="color: var(--danger); text-align: center; margin-top: 15px; font-size: 0.9rem;"></p>
+    </div>
+
+    <div id="panel-ekrani" class="gizli">
+        
+        <div class="card" style="padding: 25px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h1 style="font-size:1.2rem; margin:0;">Fileo Depo</h1>
+                <button onclick="cikisYap()" class="btn-logout" title="Çıkış">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+            
+            <div class="kota-header">
+                <span>Depolama Alanı</span>
+                <span id="kota-metin">Hesaplanıyor...</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="kota-cubuk"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <label for="dosyaInput" class="upload-area" id="dropZone">
+                <div class="icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                <p>Dosyaları buraya sürükle</p>
+                <span>veya dosya seçmek için tıkla</span>
+                <div id="secilen-dosya-ismi"></div>
+            </label>
+            <input type="file" id="dosyaInput" style="display: none;">
+
+            <label>LİNK GEÇERLİLİK SÜRESİ</label>
+            <select id="sureSecimi" onchange="ozelTarihKontrol()">
+                <option value="3153600000">Sonsuz (Kalıcı)</option>
+                <option value="86400">1 Gün</option>
+                <option value="604800">1 Hafta</option>
+                <option value="2592000">1 Ay</option>
+                <option value="custom">Özel Tarih Seç...</option>
+            </select>
+            
+            <div id="ozel-tarih-wrapper" class="gizli">
+                <input type="datetime-local" id="ozel-tarih-kutusu">
+            </div>
+
+            <div id="upload-progress-container">
+                <div class="upload-track">
+                    <div class="upload-fill" id="upload-bar"></div>
+                </div>
+                <div class="upload-text" id="upload-percent">%0 Yükleniyor...</div>
+            </div>
+
+            <button onclick="dosyaYukle()" id="yukleBtn" style="margin-top: 20px;">
+                <i class="fa-solid fa-upload"></i> Yükle ve Link Oluştur
+            </button>
+
+            <div id="yuklemeSonucu" class="link-result"></div>
+        </div>
+
+        <div class="card" style="padding: 20px;">
+            <h3 style="margin:0 0 20px 0; font-size:1rem; color:var(--text-muted);">SON YÜKLENENLER</h3>
+            <ul id="dosya-listesi"></ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- SUPABASE AYARLARI ---
+    const SB_URL = "https://qpfxzaqycwcsswdgbrok.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZnh6YXF5Y3djc3N3ZGdicm9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMjE1NDAsImV4cCI6MjA4NTg5NzU0MH0.3EhbYZgI59A4MqT5modCaGj7WEHhwlE3FuyC0OFdCNU";
+    const MAX_MB = 500;
+
+    const ozelDepo = supabase.createClient(SB_URL, SB_KEY);
+    let totalUsedBytes = 0;
+
+    // --- BAŞLANGIÇ ---
+    (async function init() {
+        const { data: { session } } = await ozelDepo.auth.getSession();
+        if (session) {
+            showPanel(true);
+            fetchFiles();
+        }
+    })();
+
+    // --- UI ETKİLEŞİMLERİ ---
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('dosyaInput');
+    const fileNameDisplay = document.getElementById('secilen-dosya-ismi');
+
+    ['dragenter', 'dragover'].forEach(eName => {
+        dropZone.addEventListener(eName, (e) => {
+            e.preventDefault(); e.stopPropagation();
+            dropZone.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eName => {
+        dropZone.addEventListener(eName, (e) => {
+            e.preventDefault(); e.stopPropagation();
+            dropZone.classList.remove('dragover');
+        });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if(files.length > 0) {
+            fileInput.files = files;
+            updateFileName(files[0].name);
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        if(fileInput.files.length > 0) {
+            updateFileName(fileInput.files[0].name);
+        }
+    });
+
+    function updateFileName(name) {
+        fileNameDisplay.style.display = 'block';
+        fileNameDisplay.innerHTML = `<i class="fa-solid fa-check"></i> ${name}`;
+    }
+
+    // --- FONKSİYONLAR ---
+
+    async function fetchFiles() {
+        const listEl = document.getElementById('dosya-listesi');
+        listEl.innerHTML = "<p style='text-align:center; color:var(--text-muted); font-size:0.9rem;'>Yükleniyor...</p>";
+
+        const { data, error } = await ozelDepo.storage.from('dosyalar').list(null, {
+            sortBy: { column: 'created_at', order: 'desc' },
+            limit: 50
+        });
+
+        if (error) {
+            listEl.innerHTML = "<p style='color:var(--danger); text-align:center;'>Liste alınamadı.</p>";
+            return;
+        }
+
+        listEl.innerHTML = "";
+        totalUsedBytes = 0;
+
+        if (!data || data.length === 0) {
+            listEl.innerHTML = "<p style='text-align:center; color:var(--text-muted); padding:10px;'>Henüz dosya yüklemedin.</p>";
+            updateQuota();
+            return;
+        }
+
+        data.forEach(file => {
+            totalUsedBytes += file.metadata.size;
+            const sizeMB = (file.metadata.size / 1024 / 1024).toFixed(2);
+            const date = new Date(file.created_at).toLocaleDateString('tr-TR');
+            const iconClass = getIconClass(file.name);
+
+            const item = document.createElement('li');
+            item.className = 'dosya-item';
+            item.innerHTML = `
+                <div style="display:flex; align-items:center; overflow:hidden;">
+                    <i class="${iconClass} file-icon"></i>
+                    <div class="file-info">
+                        <span class="file-name" title="${file.name}">${file.name}</span>
+                        <div class="file-meta">${sizeMB} MB • ${date}</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button class="action-btn" onclick="quickDownload('${file.name}')" title="İndir"><i class="fa-solid fa-download"></i></button>
+                    <button class="action-btn del" onclick="deleteFile('${file.name}')" title="Sil"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            `;
+            listEl.appendChild(item);
+        });
+        updateQuota();
+    }
+
+    // --- GERÇEK YÜKLEME ÇUBUĞU İÇİN (XHR) ---
+    async function dosyaYukle() {
+        const file = fileInput.files[0];
+        const btn = document.getElementById('yukleBtn');
+        const resultBox = document.getElementById('yuklemeSonucu');
+        const sureVal = document.getElementById('sureSecimi').value;
+        const progContainer = document.getElementById('upload-progress-container');
+        const progBar = document.getElementById('upload-bar');
+        const progText = document.getElementById('upload-percent');
+
+        if (!file) return alert("Lütfen bir dosya seçin.");
+        
+        // Kota
+        const fileSizeMB = file.size / 1024 / 1024;
+        const currentTotalMB = totalUsedBytes / 1024 / 1024;
+        if ((currentTotalMB + fileSizeMB) > MAX_MB) return alert("Depolama alanı dolu!");
+
+        // Süre
+        let seconds = 60;
+        if (sureVal === 'custom') {
+            const dateInput = document.getElementById('ozel-tarih-kutusu').value;
+            if (!dateInput) return alert("Lütfen bir tarih seçin.");
+            const targetTime = new Date(dateInput).getTime();
+            const now = Date.now();
+            seconds = Math.floor((targetTime - now) / 1000);
+            if (seconds <= 0) return alert("Geçmiş bir tarih seçilemez.");
+        } else {
+            seconds = parseInt(sureVal);
+        }
+
+        // Token Al
+        const { data: { session } } = await ozelDepo.auth.getSession();
+        if(!session) return alert("Oturum süreniz dolmuş, lütfen sayfayı yenileyin.");
+        
+        btn.disabled = true;
+        resultBox.style.display = 'none';
+        progContainer.style.display = 'block'; // Çubuğu Göster
+        progBar.style.width = '0%';
+        progText.innerText = '%0 Yükleniyor...';
+
+        const fileName = Date.now() + "_" + file.name;
+        
+        // XMLHttpRequest Başlat
+        const xhr = new XMLHttpRequest();
+        // Supabase Storage Endpoint (Proje URL'sinden türetilir)
+        const uploadUrl = `${SB_URL}/storage/v1/object/dosyalar/${fileName}`;
+
+        xhr.open('POST', uploadUrl, true);
+        
+        // Headerlar
+        xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
+        xhr.setRequestHeader('apikey', SB_KEY);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.setRequestHeader('x-upsert', 'false');
+
+        // İlerleme Olayı
+        xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                progBar.style.width = percent + '%';
+                progText.innerText = `%${percent} Yükleniyor...`;
+            }
+        };
+
+        // Bittiğinde
+        xhr.onload = async () => {
+            if (xhr.status === 200) {
+                // Başarılı
+                progBar.style.width = '100%';
+                progText.innerText = 'İşleniyor...';
+
+                // Link Oluştur
+                const { data: urlData } = await ozelDepo.storage.from('dosyalar').createSignedUrl(fileName, seconds);
+
+                resultBox.style.display = 'block';
+                resultBox.innerHTML = `
+                    <div style="font-weight:600; color:var(--success); margin-bottom:5px;">
+                        <i class="fa-solid fa-circle-check"></i> Dosya Yüklendi!
+                    </div>
+                    <input type="text" value="${urlData.signedUrl}" onclick="this.select(); document.execCommand('copy'); alert('Kopyalandı!')" readonly>
+                    <div style="font-size:0.8rem; color:var(--text-muted); text-align:right;">Kopyalamak için linke tıkla</div>
+                `;
+
+                fileInput.value = ""; 
+                fileNameDisplay.style.display = 'none';
+                fetchFiles();
+            } else {
+                alert("Yükleme Hatası: Sunucu yanıt vermedi.");
+            }
+            // Temizlik
+            btn.disabled = false;
+            progContainer.style.display = 'none';
+        };
+
+        xhr.onerror = () => {
+            alert("Ağ hatası oluştu.");
+            btn.disabled = false;
+            progContainer.style.display = 'none';
+        };
+
+        xhr.send(file);
+    }
+
+    async function deleteFile(name) {
+        if (!confirm("Silmek istediğine emin misin?")) return;
+        const { error } = await ozelDepo.storage.from('dosyalar').remove([name]);
+        if (error) alert(error.message);
+        else fetchFiles();
+    }
+
+    async function quickDownload(name) {
+        const { data } = await ozelDepo.storage.from('dosyalar').createSignedUrl(name, 3600);
+        window.open(data.signedUrl, '_blank');
+    }
+
+    async function girisYap() {
+        const rawUser = document.getElementById('kullaniciAdi').value.trim();
+        const rawPass = document.getElementById('sifre').value;
+        const user = rawUser.toLowerCase(); // Küçük harfe çevir
+        const pass = rawPass.toLowerCase(); // Küçük harfe çevir
+
+        const btn = document.getElementById('girisBtn');
+        const err = document.getElementById('hataMesaji');
+
+        if (!user || !pass) { err.innerText = "Bilgileri giriniz."; return; }
+
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kontrol ediliyor...'; err.innerText = "";
+        
+        const email = `${user}@${user}.com`;
+        const { data, error } = await ozelDepo.auth.signInWithPassword({ email, password: pass });
+
+        if (error) {
+            err.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Hatalı kullanıcı adı veya şifre.';
+            btn.disabled = false; btn.innerHTML = 'Giriş Yap <i class="fa-solid fa-arrow-right"></i>';
+        } else {
+            showPanel(true);
+            fetchFiles();
+        }
+    }
+
+    async function cikisYap() {
+        await ozelDepo.auth.signOut();
+        window.location.reload();
+    }
+
+    function showPanel(isLogin) {
+        if (isLogin) {
+            document.getElementById('giris-ekrani').classList.add('gizli');
+            document.getElementById('panel-ekrani').classList.remove('gizli');
+        }
+    }
+
+    function updateQuota() {
+        const usedMB = (totalUsedBytes / 1024 / 1024).toFixed(1);
+        const percent = (usedMB / MAX_MB) * 100;
+        document.getElementById('kota-metin').innerText = `${usedMB} / ${MAX_MB} MB`;
+        document.getElementById('kota-cubuk').style.width = percent + "%";
+    }
+
+    function ozelTarihKontrol() {
+        const val = document.getElementById('sureSecimi').value;
+        const wrapper = document.getElementById('ozel-tarih-wrapper');
+        if (val === 'custom') wrapper.classList.remove('gizli');
+        else wrapper.classList.add('gizli');
+    }
+
+    function getIconClass(name) {
+        const ext = name.split('.').pop().toLowerCase();
+        if (['jpg','jpeg','png','gif','webp'].includes(ext)) return 'fa-solid fa-file-image';
+        if (['pdf'].includes(ext)) return 'fa-solid fa-file-pdf';
+        if (['zip','rar','7z'].includes(ext)) return 'fa-solid fa-file-zipper';
+        if (['mp4','mov','avi'].includes(ext)) return 'fa-solid fa-file-video';
+        if (['mp3','wav'].includes(ext)) return 'fa-solid fa-file-audio';
+        if (['html','css','js','php'].includes(ext)) return 'fa-solid fa-file-code';
+        return 'fa-solid fa-file';
+    }
+</script>
+
+</body>
+</html>
