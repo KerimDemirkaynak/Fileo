@@ -33,21 +33,15 @@
             font-family: 'Inter', sans-serif; 
             background-color: var(--bg-body); 
             color: var(--text-main); 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            margin: 0; 
-            padding: 20px;
+            display: flex; justify-content: center; align-items: center; 
+            min-height: 100vh; margin: 0; padding: 20px;
         }
 
         .wrapper { width: 100%; max-width: 500px; }
 
         .card { 
-            background-color: var(--bg-card); 
-            padding: 40px; 
-            border-radius: 16px; 
-            border: 1px solid var(--border);
+            background-color: var(--bg-card); padding: 40px; 
+            border-radius: 16px; border: 1px solid var(--border);
             box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 20px 40px -10px rgba(0,0,0,0.5);
             margin-bottom: 20px;
         }
@@ -109,6 +103,8 @@
 
         .file-icon { font-size: 1.5rem; color: var(--text-muted); margin-right: 15px; flex-shrink: 0; }
         .file-info { flex-grow: 1; overflow: hidden; margin-right: 10px; }
+        
+        /* ÖNEMLİ: İsim gösterimi için stil */
         .file-name { font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
         .file-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
 
@@ -127,18 +123,13 @@
 
         /* Sonuç Kutusu */
         .link-result {
-            margin-top: 15px;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            display: none;
+            margin-top: 15px; background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2); padding: 15px;
+            border-radius: 8px; font-size: 0.9rem; display: none;
         }
         .link-result input { margin: 10px 0 0 0 !important; cursor: pointer; color: var(--success); border-color: rgba(16, 185, 129, 0.3); }
 
         .gizli { display: none !important; }
-
         .btn-logout { background: transparent; border: 1px solid var(--border); color: var(--text-muted); width: auto; padding: 8px 15px; font-size: 0.9rem; }
         .btn-logout:hover { border-color: var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.1); }
     </style>
@@ -170,7 +161,7 @@
         
         <div class="card" style="padding: 25px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h1 style="font-size:1.2rem; margin:0;">Fileo Depo</h1>
+                <h1 style="font-size:1.2rem; margin:0;">Fileo</h1>
                 <button onclick="cikisYap()" class="btn-logout" title="Çıkış">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
@@ -284,26 +275,35 @@
         fileNameDisplay.innerHTML = `<i class="fa-solid fa-check"></i> ${name}`;
     }
 
-    // --- İSİM TEMİZLEME FONKSİYONU (YENİ) ---
+    // --- İSİM DÜZELTME VE TEMİZLEME ---
+    
+    // 1. Yüklerken ismi güvenli hale getiren fonksiyon (Sembolleri ve Japoncayı temizler)
     function dosyaIsminiTemizle(dosyaAdi) {
-        // Uzantıyı ayır
         const parcalar = dosyaAdi.split('.');
         const uzanti = parcalar.length > 1 ? '.' + parcalar.pop() : '';
         let ad = parcalar.join('.');
 
-        // Türkçe Karakterleri İngilizceye Çevir
         const trMap = { 'ç':'c','Ç':'C','ğ':'g','Ğ':'G','ı':'i','I':'I','İ':'I','ö':'o','Ö':'O','ş':'s','Ş':'S','ü':'u','Ü':'U' };
         ad = ad.replace(/[çÇğĞıIİöÖşŞüÜ]/g, (s) => trMap[s] || s);
-
-        // Sadece a-z, 0-9, tire ve alt tire kalsın (Japonca/Sembol gider)
+        
+        // Sadece harf, rakam, tire ve alt tire bırak
         ad = ad.replace(/[^a-zA-Z0-9._-]/g, '_');
-
-        // Boş kaldıysa (tamamen Japonca ise) rastgele isim ver
-        if (ad.length === 0 || ad === '_') {
-            ad = "adsiz_dosya_" + Math.floor(Math.random() * 1000);
-        }
+        
+        // İsmi tamamen bozulduysa (örn sadece Japoncaydıysa) 'Dosya' yap
+        if (ad.replace(/_/g, '').length === 0) ad = "Dosya";
         
         return ad + uzanti;
+    }
+
+    // 2. Listelerken baştaki sayıları GİZLEYEN fonksiyon (Görüntü Güzelleştirici)
+    function guzelIsim(tamIsim) {
+        // İlk alt tirenin yerini bul
+        const ilkTire = tamIsim.indexOf('_');
+        // Eğer alt tire varsa, ondan sonrasını döndür (Sayıyı at)
+        if (ilkTire !== -1) {
+            return tamIsim.substring(ilkTire + 1);
+        }
+        return tamIsim;
     }
 
     // --- FONKSİYONLAR ---
@@ -336,6 +336,9 @@
             const sizeMB = (file.metadata.size / 1024 / 1024).toFixed(2);
             const date = new Date(file.created_at).toLocaleDateString('tr-TR');
             const iconClass = getIconClass(file.name);
+            
+            // BURASI ÖNEMLİ: Görünen ismi temizliyoruz (1705... kısmını atıyoruz)
+            const gorunenIsim = guzelIsim(file.name);
 
             const item = document.createElement('li');
             item.className = 'dosya-item';
@@ -343,7 +346,7 @@
                 <div style="display:flex; align-items:center; overflow:hidden;">
                     <i class="${iconClass} file-icon"></i>
                     <div class="file-info">
-                        <span class="file-name" title="${file.name}">${file.name}</span>
+                        <span class="file-name" title="${gorunenIsim}">${gorunenIsim}</span>
                         <div class="file-meta">${sizeMB} MB • ${date}</div>
                     </div>
                 </div>
@@ -357,7 +360,7 @@
         updateQuota();
     }
 
-    // --- YÜKLEME (GÜVENLİ İSİM + İLERLEME ÇUBUĞU) ---
+    // --- YÜKLEME ---
     async function dosyaYukle() {
         const file = fileInput.files[0];
         const btn = document.getElementById('yukleBtn');
@@ -369,12 +372,10 @@
 
         if (!file) return alert("Lütfen bir dosya seçin.");
         
-        // Kota Kontrolü
         const fileSizeMB = file.size / 1024 / 1024;
         const currentTotalMB = totalUsedBytes / 1024 / 1024;
         if ((currentTotalMB + fileSizeMB) > MAX_MB) return alert("Depolama alanı dolu!");
 
-        // Süre
         let seconds = 60;
         if (sureVal === 'custom') {
             const dateInput = document.getElementById('ozel-tarih-kutusu').value;
@@ -387,7 +388,6 @@
             seconds = parseInt(sureVal);
         }
 
-        // Token
         const { data: { session } } = await ozelDepo.auth.getSession();
         if(!session) return alert("Oturum süreniz dolmuş, sayfayı yenileyin.");
         
@@ -397,11 +397,11 @@
         progBar.style.width = '0%';
         progText.innerText = '%0 Yükleniyor...';
 
-        // İSMİ GÜVENLİ HALE GETİR (Tarih + Temizlenmiş İsim)
+        // 1. İSMİ DÜZELT (Japonca/Sembol temizle)
         const temizIsim = dosyaIsminiTemizle(file.name);
+        // 2. TARIH EKLE (Storage için benzersiz olsun)
         const fileName = Date.now() + "_" + temizIsim;
         
-        // XHR Upload
         const xhr = new XMLHttpRequest();
         const uploadUrl = `${SB_URL}/storage/v1/object/dosyalar/${fileName}`;
 
@@ -425,7 +425,6 @@
                 progBar.style.width = '100%';
                 progText.innerText = 'İşleniyor...';
 
-                // Link Oluştur
                 const { data: urlData } = await ozelDepo.storage.from('dosyalar').createSignedUrl(fileName, seconds);
 
                 resultBox.style.display = 'block';
@@ -468,7 +467,6 @@
         window.open(data.signedUrl, '_blank');
     }
 
-    // --- GİRİŞ (DÜZELTİLMİŞ) ---
     async function girisYap() {
         const rawUser = document.getElementById('kullaniciAdi').value.trim();
         const rawPass = document.getElementById('sifre').value;
