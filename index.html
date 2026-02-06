@@ -290,7 +290,7 @@
         ad = ad.replace(/[^a-zA-Z0-9._-]/g, '_');
         
         // İsmi tamamen bozulduysa (örn sadece Japoncaydıysa) bunu yap
-        if (ad.replace(/_/g, '').length === 0) ad = "Adsız Dosya";
+        if (ad.replace(/_/g, '').length === 0) ad = "Adsiz Dosya";
         
         return ad + uzanti;
     }
