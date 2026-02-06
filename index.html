@@ -161,7 +161,7 @@
         
         <div class="card" style="padding: 25px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                <h1 style="font-size:1.2rem; margin:0;">Fileo</h1>
+                <h1 style="font-size:1.2rem; margin:0;">Fileo Depo</h1>
                 <button onclick="cikisYap()" class="btn-logout" title="Çıkış">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
@@ -185,7 +185,7 @@
             </label>
             <input type="file" id="dosyaInput" style="display: none;">
 
-            <label>LİNK GEÇERLİLİK SÜRESİ</label>
+            <label>DOSYA GEÇERLİLİK SÜRESİ</label>
             <select id="sureSecimi" onchange="ozelTarihKontrol()">
                 <option value="3153600000">Sonsuz (Kalıcı)</option>
                 <option value="86400">1 Gün</option>
@@ -289,8 +289,8 @@
         // Sadece harf, rakam, tire ve alt tire bırak
         ad = ad.replace(/[^a-zA-Z0-9._-]/g, '_');
         
-        // İsmi tamamen bozulduysa (örn sadece Japoncaydıysa) 'Dosya' yap
-        if (ad.replace(/_/g, '').length === 0) ad = "Dosya";
+        // İsmi tamamen bozulduysa (örn sadece Japoncaydıysa) bunu yap
+        if (ad.replace(/_/g, '').length === 0) ad = "Adsız Dosya";
         
         return ad + uzanti;
     }
