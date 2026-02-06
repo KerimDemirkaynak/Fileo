@@ -13,7 +13,7 @@
     
     <style>
         :root {
-            /* KOYU TEMA (Dark & Flat) */
+            /* KOYU TEMA */
             --bg-body: #09090b;       
             --bg-card: #18181b;       
             --bg-input: #27272a;      
@@ -92,21 +92,11 @@
         
         #secilen-dosya-ismi { margin-top: 15px; font-weight: 600; color: var(--success); font-size: 0.9rem; display: none; }
 
-        /* YENİ: Yükleme İlerleme Çubuğu */
-        #upload-progress-container {
-            margin-top: 20px;
-            display: none; /* Başlangıçta gizli */
-        }
-        .upload-track {
-            width: 100%; background: var(--bg-input); height: 10px; border-radius: 5px; overflow: hidden;
-            border: 1px solid var(--border);
-        }
-        .upload-fill {
-            height: 100%; background: var(--primary); width: 0%; transition: width 0.1s linear;
-        }
-        .upload-text {
-            text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;
-        }
+        /* İlerleme Çubuğu */
+        #upload-progress-container { margin-top: 20px; display: none; }
+        .upload-track { width: 100%; background: var(--bg-input); height: 10px; border-radius: 5px; overflow: hidden; border: 1px solid var(--border); }
+        .upload-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.1s linear; }
+        .upload-text { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 5px; }
 
         /* Liste */
         ul#dosya-listesi { list-style: none; padding: 0; margin: 0; }
@@ -294,6 +284,28 @@
         fileNameDisplay.innerHTML = `<i class="fa-solid fa-check"></i> ${name}`;
     }
 
+    // --- İSİM TEMİZLEME FONKSİYONU (YENİ) ---
+    function dosyaIsminiTemizle(dosyaAdi) {
+        // Uzantıyı ayır
+        const parcalar = dosyaAdi.split('.');
+        const uzanti = parcalar.length > 1 ? '.' + parcalar.pop() : '';
+        let ad = parcalar.join('.');
+
+        // Türkçe Karakterleri İngilizceye Çevir
+        const trMap = { 'ç':'c','Ç':'C','ğ':'g','Ğ':'G','ı':'i','I':'I','İ':'I','ö':'o','Ö':'O','ş':'s','Ş':'S','ü':'u','Ü':'U' };
+        ad = ad.replace(/[çÇğĞıIİöÖşŞüÜ]/g, (s) => trMap[s] || s);
+
+        // Sadece a-z, 0-9, tire ve alt tire kalsın (Japonca/Sembol gider)
+        ad = ad.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+        // Boş kaldıysa (tamamen Japonca ise) rastgele isim ver
+        if (ad.length === 0 || ad === '_') {
+            ad = "adsiz_dosya_" + Math.floor(Math.random() * 1000);
+        }
+        
+        return ad + uzanti;
+    }
+
     // --- FONKSİYONLAR ---
 
     async function fetchFiles() {
@@ -345,7 +357,7 @@
         updateQuota();
     }
 
-    // --- GERÇEK YÜKLEME ÇUBUĞU İÇİN (XHR) ---
+    // --- YÜKLEME (GÜVENLİ İSİM + İLERLEME ÇUBUĞU) ---
     async function dosyaYukle() {
         const file = fileInput.files[0];
         const btn = document.getElementById('yukleBtn');
@@ -357,7 +369,7 @@
 
         if (!file) return alert("Lütfen bir dosya seçin.");
         
-        // Kota
+        // Kota Kontrolü
         const fileSizeMB = file.size / 1024 / 1024;
         const currentTotalMB = totalUsedBytes / 1024 / 1024;
         if ((currentTotalMB + fileSizeMB) > MAX_MB) return alert("Depolama alanı dolu!");
@@ -375,32 +387,31 @@
             seconds = parseInt(sureVal);
         }
 
-        // Token Al
+        // Token
         const { data: { session } } = await ozelDepo.auth.getSession();
-        if(!session) return alert("Oturum süreniz dolmuş, lütfen sayfayı yenileyin.");
+        if(!session) return alert("Oturum süreniz dolmuş, sayfayı yenileyin.");
         
         btn.disabled = true;
         resultBox.style.display = 'none';
-        progContainer.style.display = 'block'; // Çubuğu Göster
+        progContainer.style.display = 'block'; 
         progBar.style.width = '0%';
         progText.innerText = '%0 Yükleniyor...';
 
-        const fileName = Date.now() + "_" + file.name;
+        // İSMİ GÜVENLİ HALE GETİR (Tarih + Temizlenmiş İsim)
+        const temizIsim = dosyaIsminiTemizle(file.name);
+        const fileName = Date.now() + "_" + temizIsim;
         
-        // XMLHttpRequest Başlat
+        // XHR Upload
         const xhr = new XMLHttpRequest();
-        // Supabase Storage Endpoint (Proje URL'sinden türetilir)
         const uploadUrl = `${SB_URL}/storage/v1/object/dosyalar/${fileName}`;
 
         xhr.open('POST', uploadUrl, true);
         
-        // Headerlar
         xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`);
         xhr.setRequestHeader('apikey', SB_KEY);
         xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
         xhr.setRequestHeader('x-upsert', 'false');
 
-        // İlerleme Olayı
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
@@ -409,10 +420,8 @@
             }
         };
 
-        // Bittiğinde
         xhr.onload = async () => {
             if (xhr.status === 200) {
-                // Başarılı
                 progBar.style.width = '100%';
                 progText.innerText = 'İşleniyor...';
 
@@ -434,7 +443,6 @@
             } else {
                 alert("Yükleme Hatası: Sunucu yanıt vermedi.");
             }
-            // Temizlik
             btn.disabled = false;
             progContainer.style.display = 'none';
         };
@@ -460,11 +468,12 @@
         window.open(data.signedUrl, '_blank');
     }
 
+    // --- GİRİŞ (DÜZELTİLMİŞ) ---
     async function girisYap() {
         const rawUser = document.getElementById('kullaniciAdi').value.trim();
         const rawPass = document.getElementById('sifre').value;
-        const user = rawUser.toLowerCase(); // Küçük harfe çevir
-        const pass = rawPass.toLowerCase(); // Küçük harfe çevir
+        const user = rawUser.toLowerCase(); 
+        const pass = rawPass.toLowerCase();
 
         const btn = document.getElementById('girisBtn');
         const err = document.getElementById('hataMesaji');
